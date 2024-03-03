@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
+using UnityEditor.Experimental.GraphView;
+using UnityEditor.SearchService;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,59 +11,64 @@ public class Player : MonoBehaviour
 {
     public class InputMod
     {
-        public InputAction Jump;
-        public InputAction Sprint;
-        public InputAction MoveForward;
-        public InputAction MoveLateral;
+        public InputAction jump;
+        public InputAction sprint;
+        public InputAction moveForward;
+        public InputAction moveLateral;
     }
 
-    public float LookSensitivity;
-    public float Acceleration;
-    public float Decceleration;
-    public float WalkSpeed;
-    public float RunSpeed;
-    public float JumpForce;
-    public float KneeForce;
-    public float KneeSink;
-    public float KneeDamp;
-    public int CoyoteFrames;
-    public float AerialControl;
-    public float MaxSlope;
-    public float FeetLength;
+    public float lookSensitivity;
+    public float acceleration;
+    public float decceleration;
+    public float walkSpeed;
+    public float runSpeed;
+    public float jumpForce;
+    public float kneeForce;
+    public float kneeSink;
+    public float kneeDamp;
+    public int coyoteFrames;
+    public float aerialControl;
+    public float maxSlope;
+    public float feetLength;
 
-    private bool IsGrounded;
-    private bool WasGrounded;
-    private int CoyoteFrame;
+    private bool isGrounded;
+    private bool wasGrounded;
+    private int coyoteFrame;
 
-    private Camera PlayerCam;
-    private float CamTilt;
+    private Camera playerCam;
+    private MainCamera mainCam;
+    private float camTilt;
 
     private Rigidbody RB;
-    private Vector3 GroundNormal;
-    private Vector3 GroundContact;
+    private Vector3 groundNormal;
+    private Vector3 groundContact;
     private Vector3 feetSpeed;
 
-    private InputMod Control;
-    private Vector2 MouseDelta;
+    private InputMod control;
+    private Vector2 mouseDelta;
+
+    private float portalRelPos;
+    private Portal closestPortal;
 
     public Transform testOb;
 
     void Start()
     {
         RB = GetComponent<Rigidbody>();
-        PlayerCam = GetComponentInChildren<Camera>();
-        GroundNormal = Vector3.up;
-        GroundContact = Vector3.zero;
+        playerCam = GetComponentInChildren<Camera>();
+        mainCam = playerCam.GetComponent<MainCamera>();
+        groundNormal = Vector3.up;
+        groundContact = Vector3.zero;
         Cursor.lockState = CursorLockMode.Locked;
-        CoyoteFrame = CoyoteFrames;
+        coyoteFrame = coyoteFrames;
         PlayerInput _inputs = GetComponent<PlayerInput>();
         InputActionMap actionMap = _inputs.actions.FindActionMap("Player");
-        Control = new InputMod()
+        control = new InputMod()
         {
-            Jump = actionMap.FindAction("Jump"),
-            Sprint = actionMap.FindAction("Sprint"),
-            MoveForward = actionMap.FindAction("MoveForward"),
-            MoveLateral = actionMap.FindAction("MoveLateral")
+            jump = actionMap.FindAction("Jump"),
+            sprint = actionMap.FindAction("Sprint"),
+            moveForward = actionMap.FindAction("MoveForward"),
+            moveLateral = actionMap.FindAction("MoveLateral")
         };
     }
 
@@ -71,6 +78,12 @@ public class Player : MonoBehaviour
         PlayerMovementSpontaneous();
     }
 
+    void LateUpdate ()
+    {
+        PortalTraversal();
+
+    }
+
     void FixedUpdate ()
     {
         CastFeet();
@@ -78,67 +91,113 @@ public class Player : MonoBehaviour
         PlayerMovement();
     }
 
+    private void PortalTraversal()
+    {
+        float bestDist = float.MaxValue;
+        Portal best = null;
+        foreach (Portal portal in mainCam.portals)
+        {
+            float dist = (portal.transform.position - transform.position).magnitude;
+            if (dist < bestDist) 
+            {
+                bestDist = dist;
+                best = portal;
+            }
+        }
+        if (best != null)
+        {
+            Vector3 toPortal = best.transform.position - transform.position;
+            float dotWithPortal = Vector3.Dot(toPortal, best.transform.forward);
+            
+            // will we go?
+            if (best == closestPortal && Mathf.Sign(dotWithPortal) != Mathf.Sign(portalRelPos) && WithinPortalBounds(best, toPortal))
+            {
+                Teleport(best);
+            }
+            closestPortal = best;
+            portalRelPos = dotWithPortal;
+        }
+    }
+
+    private bool WithinPortalBounds(Portal portal, Vector3 toPortalWorld)
+    {
+        Vector3 toPortalLocal = portal.transform.InverseTransformVector(toPortalWorld);
+        bool withinWidth = Mathf.Abs(toPortalLocal.x) < portal.transform.localScale.x / 2f;
+        bool withinHeight = Mathf.Abs(toPortalLocal.y) < portal.transform.localScale.y / 2f;
+        return withinWidth && withinHeight;
+    }
+
+    private void Teleport(Portal portal)
+    {
+        Matrix4x4 transMatrix = portal.linkedPortal.transform.localToWorldMatrix * portal.transform.worldToLocalMatrix * transform.localToWorldMatrix;
+        transform.SetPositionAndRotation(transMatrix.GetColumn(3), transMatrix.rotation);
+        transMatrix = portal.linkedPortal.transform.localToWorldMatrix * portal.transform.worldToLocalMatrix;
+        RB.velocity = transMatrix * RB.velocity;
+        Physics.gravity = -transform.up * Physics.gravity.magnitude;
+        // UnityEditor.EditorApplication.isPaused = true;
+    }
+
     /// <summary>
     /// Make Player taller than collider to allow for steps
     /// </summary>
     private void SuspendPlayer()
     {
-        if (!IsGrounded) return;
-        Vector3 feetMaxPoint = transform.position - transform.up * FeetLength;
-        float discrepancy = Vector3.Dot(transform.up, GroundContact - feetMaxPoint) - KneeSink;
-        RB.velocity += GroundNormal * Mathf.Max(Vector3.Dot(RB.velocity, -GroundNormal), 0f) * KneeDamp;
-        transform.Translate(transform.up * Mathf.Max(0f, discrepancy * KneeForce), Space.World);
+        if (!isGrounded) return;
+        Vector3 feetMaxPoint = transform.position - transform.up * feetLength;
+        float discrepancy = Vector3.Dot(transform.up, groundContact - feetMaxPoint) - kneeSink;
+        RB.velocity += groundNormal * Mathf.Max(Vector3.Dot(RB.velocity, -groundNormal), 0f) * kneeDamp;
+        transform.Translate(transform.up * Mathf.Max(0f, discrepancy * kneeForce), Space.World);
     }
 
     private void CastFeet()
     {
-        Physics.Raycast(transform.position, -transform.up, out RaycastHit hit, FeetLength, ~1 >> 12);
-        WasGrounded = IsGrounded;
-        if (!IsGrounded && CoyoteFrame > 0) CoyoteFrame--;
+        Physics.Raycast(transform.position, -transform.up, out RaycastHit hit, feetLength, ~1 >> 12);
+        wasGrounded = isGrounded;
+        if (!isGrounded && coyoteFrame > 0) coyoteFrame--;
         if (hit.collider != null)
         {
-            GroundNormal = hit.normal;
-            GroundContact = hit.point;
-            IsGrounded = true;
+            groundNormal = hit.normal;
+            groundContact = hit.point;
+            isGrounded = true;
         }
         else
         {
-            IsGrounded = false;
-            GroundNormal = transform.up;
+            isGrounded = false;
+            groundNormal = transform.up;
         }
-        if (IsGrounded && !WasGrounded) CoyoteFrame = CoyoteFrames;
+        if (isGrounded && !wasGrounded) coyoteFrame = coyoteFrames;
     }
 
     private void MouseInput()
     {
-        Vector2 _delta = Mouse.current.delta.ReadValue() * LookSensitivity;
-        Vector2 delta = _delta + MouseDelta;
+        Vector2 _delta = Mouse.current.delta.ReadValue() * lookSensitivity;
+        Vector2 delta = _delta + mouseDelta;
         delta /= 2f;
 
-        CamTilt -= delta.y;
-        CamTilt = Mathf.Clamp(CamTilt, -90f, 90f);
+        camTilt -= delta.y;
+        camTilt = Mathf.Clamp(camTilt, -90f, 90f);
 
         transform.Rotate(new Vector3(0f, delta.x, 0f), Space.Self);
-        PlayerCam.transform.localRotation = Quaternion.Euler(CamTilt, 0f, 0f);
+        playerCam.transform.localRotation = Quaternion.Euler(camTilt, 0f, 0f);
 
-        MouseDelta = _delta;
+        mouseDelta = _delta;
     }
 
     private void PlayerMovementSpontaneous()
     {
         
-        if (Control.Jump.triggered && (IsGrounded || CoyoteFrame > 0))
+        if (control.jump.triggered && (isGrounded || coyoteFrame > 0))
         {
             float currentUpSpeed = Vector3.Dot(transform.up, RB.velocity);
-            RB.velocity += transform.up * Mathf.Max(0f, JumpForce - currentUpSpeed);
-            CoyoteFrame = 0;
+            RB.velocity += transform.up * Mathf.Max(0f, jumpForce - currentUpSpeed);
+            coyoteFrame = 0;
         }
     }
 
     private void PlayerMovement()
     {
-        float forwardInput = Control.MoveForward.ReadValue<float>();
-        float lateralInput = Control.MoveLateral.ReadValue<float>();
+        float forwardInput = control.moveForward.ReadValue<float>();
+        float lateralInput = control.moveLateral.ReadValue<float>();
 
         float inputScale = Mathf.Sqrt(forwardInput * forwardInput + lateralInput * lateralInput);
         if (inputScale > 1f) 
@@ -147,36 +206,36 @@ public class Player : MonoBehaviour
             lateralInput /= inputScale;
         }
 
-        Vector3 floorForward = -Vector3.Normalize(Vector3.Cross(GroundNormal, transform.right));
+        Vector3 floorForward = -Vector3.Normalize(Vector3.Cross(groundNormal, transform.right));
         Vector3 inputVector = new Vector3(lateralInput, 0f, forwardInput);
 
-        Quaternion feetOrientation = Quaternion.LookRotation(floorForward, GroundNormal);
+        Quaternion feetOrientation = Quaternion.LookRotation(floorForward, groundNormal);
         testOb.rotation = feetOrientation;
-        testOb.position = GroundContact;
+        testOb.position = groundContact;
 
         Vector3 feetSpaceInputVector = feetOrientation * inputVector;
         
-        Vector3 feetForce = feetSpaceInputVector * Acceleration;
+        Vector3 feetForce = feetSpaceInputVector * acceleration;
         
-        float capSpeed = Control.Sprint.IsPressed() ? RunSpeed : WalkSpeed;
-        feetSpeed = Vector3.ProjectOnPlane(RB.velocity, GroundNormal);
-        Vector3 deccelerateForce = Vector3.ProjectOnPlane(Vector3.ProjectOnPlane(-feetSpeed * Decceleration, Vector3.Normalize(feetForce)), GroundNormal);
+        float capSpeed = control.sprint.IsPressed() ? runSpeed : walkSpeed;
+        feetSpeed = Vector3.ProjectOnPlane(RB.velocity, groundNormal);
+        Vector3 deccelerateForce = Vector3.ProjectOnPlane(Vector3.ProjectOnPlane(-feetSpeed * decceleration, Vector3.Normalize(feetForce)), groundNormal);
 
-        if (!IsGrounded) 
+        if (!isGrounded) 
         {
-            capSpeed *= AerialControl;
-            feetForce *= AerialControl;
+            capSpeed *= aerialControl;
+            feetForce *= aerialControl;
             deccelerateForce *= 0.09f;
         }
 
         if ((feetForce + feetSpeed).magnitude <= capSpeed) RB.velocity += feetForce;
         RB.velocity += deccelerateForce;
         // static friction
-        if (IsGrounded && feetForce.magnitude < 0.01f && feetSpeed.magnitude < 0.3f) 
+        if (isGrounded && feetForce.magnitude < 0.01f && feetSpeed.magnitude < 0.3f) 
         {
             RB.velocity = Vector3.zero + transform.up * Vector3.Dot(RB.velocity, transform.up);
         }
         
-        feetSpeed = Vector3.ProjectOnPlane(RB.velocity, GroundNormal);
+        feetSpeed = Vector3.ProjectOnPlane(RB.velocity, groundNormal);
     }
 }
