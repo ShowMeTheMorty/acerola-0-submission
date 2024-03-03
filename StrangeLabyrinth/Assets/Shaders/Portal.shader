@@ -6,7 +6,7 @@ Shader "Unlit/Portal"
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
+        Tags { "RenderType"="Transparent" "Queue" = "Transparent" }
         Cull Off
         LOD 100
 

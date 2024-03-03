@@ -5,6 +5,12 @@ using System.Net.Sockets;
 using UnityEditor.SearchService;
 using UnityEngine;
 
+/// <summary>
+/// Heavily modelled on Sebastian Lague's Portals project
+/// I don't fully understand how the clipping issues were solved, 
+// nor how the near clipping plane is manipulated for oblique projection
+// nor how recursion works :)
+/// </summary>
 public class Portal : MonoBehaviour
 {
     public Portal linkedPortal;
@@ -13,6 +19,8 @@ public class Portal : MonoBehaviour
     private Camera portalCam;
     private Camera playerCam;
     private RenderTexture viewTexture;
+
+    const int recursionLimit = 1;
     
     void Awake ()
     {
@@ -37,15 +45,40 @@ public class Portal : MonoBehaviour
 
     public void Render ()
     {
-        if (!VisibleFromCamera()) return;
+        // unfortuanately prevents rendering of objects behind
+        // if (!VisibleFromCamera()) return;
         screen.enabled = false;
         CreateViewTexture();
 
-        Matrix4x4 transMatrix = transform.localToWorldMatrix * linkedPortal.transform.worldToLocalMatrix * playerCam.transform.localToWorldMatrix;
-        portalCam.transform.SetPositionAndRotation(transMatrix.GetColumn(3), transMatrix.rotation);
+        Matrix4x4 localToWorld = playerCam.transform.localToWorldMatrix;
+        Matrix4x4[] matrices = new Matrix4x4[recursionLimit];
+        for (int i = 0; i < recursionLimit; i++)
+        {
+            localToWorld = transform.localToWorldMatrix * linkedPortal.transform.worldToLocalMatrix * localToWorld;
+            matrices[recursionLimit - i - 1] = localToWorld;
+        }
 
-        portalCam.Render();
+        screen.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+        for (int i = 0; i < recursionLimit; i++)
+        {
+            portalCam.transform.SetPositionAndRotation(matrices[i].GetColumn(3), matrices[i].rotation);
+            SetNearClipPlane();
+            linkedPortal.ProtectFromClipping();
+            portalCam.Render();
+        }
+        screen.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+
         screen.enabled = true;
+    }
+
+    private void SetNearClipPlane()
+    {
+        int dot = Math.Sign(Vector3.Dot(transform.forward, transform.position - portalCam.transform.position));
+        Vector3 camSpacePos = portalCam.worldToCameraMatrix.MultiplyPoint(transform.position);
+        Vector3 camSpaceNormal = portalCam.worldToCameraMatrix.MultiplyVector(transform.forward) * dot;
+        float camSpaceDist = -Vector3.Dot(camSpacePos, camSpaceNormal);
+        Vector4 clipPlaneCamSpace = new Vector4(camSpaceNormal.x, camSpaceNormal.y, camSpaceNormal.z, camSpaceDist);
+        portalCam.projectionMatrix = playerCam.CalculateObliqueMatrix(clipPlaneCamSpace);
     }
 
     public void ProtectFromClipping ()
