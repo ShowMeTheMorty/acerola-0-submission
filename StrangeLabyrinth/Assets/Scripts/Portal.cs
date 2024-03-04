@@ -15,8 +15,8 @@ public class Portal : MonoBehaviour
 {
     public Portal linkedPortal;
     
-    private MeshRenderer screen;
-    private Camera portalCam;
+    internal MeshRenderer screen;
+    internal Camera portalCam;
     private Camera playerCam;
     private RenderTexture viewTexture;
 
@@ -45,27 +45,20 @@ public class Portal : MonoBehaviour
 
     public void Render ()
     {
-        // unfortuanately prevents rendering of objects behind
-        // if (!VisibleFromCamera()) return;
+        if (!MainCamera.portals[this].linkedSceenVisibleToPlayer) return;
         screen.enabled = false;
         CreateViewTexture();
 
-        Matrix4x4 localToWorld = playerCam.transform.localToWorldMatrix;
-        Matrix4x4[] matrices = new Matrix4x4[recursionLimit];
-        for (int i = 0; i < recursionLimit; i++)
-        {
-            localToWorld = transform.localToWorldMatrix * linkedPortal.transform.worldToLocalMatrix * localToWorld;
-            matrices[recursionLimit - i - 1] = localToWorld;
-        }
+        Matrix4x4 localToWorld = MainCamera.portals[this].bestPerspective.transform.localToWorldMatrix;
+        Matrix4x4 matrix = transform.localToWorldMatrix * linkedPortal.transform.worldToLocalMatrix * localToWorld;
 
         screen.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
-        for (int i = 0; i < recursionLimit; i++)
-        {
-            portalCam.transform.SetPositionAndRotation(matrices[i].GetColumn(3), matrices[i].rotation);
-            SetNearClipPlane();
-            linkedPortal.ProtectFromClipping();
-            portalCam.Render();
-        }
+
+        portalCam.transform.SetPositionAndRotation(matrix.GetColumn(3), matrix.rotation);
+        SetNearClipPlane();
+        linkedPortal.ProtectFromClipping();
+        portalCam.Render();
+
         screen.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
 
         screen.enabled = true;
@@ -76,9 +69,9 @@ public class Portal : MonoBehaviour
         int dot = Math.Sign(Vector3.Dot(transform.forward, transform.position - portalCam.transform.position));
         Vector3 camSpacePos = portalCam.worldToCameraMatrix.MultiplyPoint(transform.position);
         Vector3 camSpaceNormal = portalCam.worldToCameraMatrix.MultiplyVector(transform.forward) * dot;
-        float camSpaceDist = -Vector3.Dot(camSpacePos, camSpaceNormal);
+        float camSpaceDist = -Vector3.Dot(camSpacePos, camSpaceNormal) + 0.01f;
         Vector4 clipPlaneCamSpace = new Vector4(camSpaceNormal.x, camSpaceNormal.y, camSpaceNormal.z, camSpaceDist);
-        portalCam.projectionMatrix = playerCam.CalculateObliqueMatrix(clipPlaneCamSpace);
+        portalCam.projectionMatrix = MainCamera.portals[this].bestPerspective.CalculateObliqueMatrix(clipPlaneCamSpace);
     }
 
     public void ProtectFromClipping ()
@@ -89,11 +82,5 @@ public class Portal : MonoBehaviour
         bool camPotalViewAligned = Vector3.Dot(transform.forward, transform.position - playerCam.transform.position) > 0;
         screen.transform.localScale = new Vector3(screen.transform.localScale.x, screen.transform.localScale.y, distToClipPlaneCorner);
         screen.transform.localPosition = Vector3.forward * distToClipPlaneCorner * (camPotalViewAligned ? 0.5f : -0.5f);
-    }
-
-    private bool VisibleFromCamera ()
-    {
-        Plane[] frustumPlanes = GeometryUtility.CalculateFrustumPlanes(playerCam);
-        return GeometryUtility.TestPlanesAABB(frustumPlanes, linkedPortal.screen.bounds);
     }
 }

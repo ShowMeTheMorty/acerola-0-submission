@@ -36,7 +36,6 @@ public class Player : MonoBehaviour
     private int coyoteFrame;
 
     private Camera playerCam;
-    private MainCamera mainCam;
     private float camTilt;
 
     private Rigidbody RB;
@@ -56,7 +55,6 @@ public class Player : MonoBehaviour
     {
         RB = GetComponent<Rigidbody>();
         playerCam = GetComponentInChildren<Camera>();
-        mainCam = playerCam.GetComponent<MainCamera>();
         groundNormal = Vector3.up;
         groundContact = Vector3.zero;
         Cursor.lockState = CursorLockMode.Locked;
@@ -95,7 +93,7 @@ public class Player : MonoBehaviour
     {
         float bestDist = float.MaxValue;
         Portal best = null;
-        foreach (Portal portal in mainCam.portals)
+        foreach (Portal portal in MainCamera.portals.Keys)
         {
             float dist = (portal.transform.position - transform.position).magnitude;
             if (dist < bestDist) 
@@ -106,7 +104,7 @@ public class Player : MonoBehaviour
         }
         if (best != null)
         {
-            Vector3 toPortal = best.transform.position - transform.position;
+            Vector3 toPortal = best.transform.position - playerCam.transform.position;
             float dotWithPortal = Vector3.Dot(toPortal, best.transform.forward);
             
             // will we go?
@@ -215,21 +213,29 @@ public class Player : MonoBehaviour
 
         Vector3 feetSpaceInputVector = feetOrientation * inputVector;
         
-        Vector3 feetForce = feetSpaceInputVector * acceleration;
-        
         float capSpeed = control.sprint.IsPressed() ? runSpeed : walkSpeed;
         feetSpeed = Vector3.ProjectOnPlane(RB.velocity, groundNormal);
-        Vector3 deccelerateForce = Vector3.ProjectOnPlane(Vector3.ProjectOnPlane(-feetSpeed * decceleration, Vector3.Normalize(feetForce)), groundNormal);
 
         if (!isGrounded) 
         {
             capSpeed *= aerialControl;
+        }
+
+        Vector3 feetForce = feetSpaceInputVector * acceleration;
+        if ((feetForce + feetSpeed).magnitude > capSpeed) feetForce *= 0f;
+
+        Vector3 deccelerateForce = Vector3.ProjectOnPlane(-Vector3.Normalize(feetSpeed) * decceleration, groundNormal);
+        if (!isGrounded) 
+        {
             feetForce *= aerialControl;
             deccelerateForce *= 0.09f;
         }
+        deccelerateForce += Vector3.Normalize(feetForce) * Mathf.Max(0f, Vector3.Dot(-deccelerateForce, feetForce));
 
-        if ((feetForce + feetSpeed).magnitude <= capSpeed) RB.velocity += feetForce;
+
+        RB.velocity += feetForce;
         RB.velocity += deccelerateForce;
+
         // static friction
         if (isGrounded && feetForce.magnitude < 0.01f && feetSpeed.magnitude < 0.3f) 
         {
