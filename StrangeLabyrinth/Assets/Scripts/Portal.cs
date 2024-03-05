@@ -9,19 +9,23 @@ using UnityEngine;
 /// Heavily modelled on Sebastian Lague's Portals project
 /// I don't fully understand how the clipping issues were solved, 
 // nor how the near clipping plane is manipulated for oblique projection
-// nor how recursion works :)
 /// </summary>
 public class Portal : MonoBehaviour
 {
+    [Serializable]
+    public class ProxyPortal
+    {
+        public PlayerDetector detector;
+        public Portal proxy;
+    }
+
     public Portal linkedPortal;
-    public List<Portal> secondDepthPortals;
+    public List<ProxyPortal> proxies;
 
     internal MeshRenderer screen;
     internal Camera portalCam;
     private Camera playerCam;
     private RenderTexture viewTexture;
-
-    const int recursionLimit = 1;
     
     void Awake ()
     {

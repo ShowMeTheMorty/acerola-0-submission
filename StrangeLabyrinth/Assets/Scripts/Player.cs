@@ -74,11 +74,11 @@ public class Player : MonoBehaviour
     {
         MouseInput();
         PlayerMovementSpontaneous();
+        PortalTraversal();
     }
 
     void LateUpdate ()
     {
-        PortalTraversal();
 
     }
 
