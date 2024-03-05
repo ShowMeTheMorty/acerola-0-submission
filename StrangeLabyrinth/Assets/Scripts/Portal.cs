@@ -14,7 +14,8 @@ using UnityEngine;
 public class Portal : MonoBehaviour
 {
     public Portal linkedPortal;
-    
+    public List<Portal> secondDepthPortals;
+
     internal MeshRenderer screen;
     internal Camera portalCam;
     private Camera playerCam;
@@ -43,18 +44,24 @@ public class Portal : MonoBehaviour
         }
     }
 
+    public void Reposition ()
+    {
+        if (!MainCamera.portals[this].linkedSceenVisibleToPlayer) return;
+        Matrix4x4 localToWorld = MainCamera.portals[this].bestPerspective.transform.localToWorldMatrix;
+        Matrix4x4 matrix = transform.localToWorldMatrix * linkedPortal.transform.worldToLocalMatrix * localToWorld;
+        portalCam.transform.SetPositionAndRotation(matrix.GetColumn(3), matrix.rotation);
+
+    }
+
     public void Render ()
     {
         if (!MainCamera.portals[this].linkedSceenVisibleToPlayer) return;
         screen.enabled = false;
         CreateViewTexture();
 
-        Matrix4x4 localToWorld = MainCamera.portals[this].bestPerspective.transform.localToWorldMatrix;
-        Matrix4x4 matrix = transform.localToWorldMatrix * linkedPortal.transform.worldToLocalMatrix * localToWorld;
 
         screen.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
 
-        portalCam.transform.SetPositionAndRotation(matrix.GetColumn(3), matrix.rotation);
         SetNearClipPlane();
         linkedPortal.ProtectFromClipping();
         portalCam.Render();

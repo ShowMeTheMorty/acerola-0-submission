@@ -224,14 +224,13 @@ public class Player : MonoBehaviour
         Vector3 feetForce = feetSpaceInputVector * acceleration;
         if ((feetForce + feetSpeed).magnitude > capSpeed) feetForce *= 0f;
 
-        Vector3 deccelerateForce = Vector3.ProjectOnPlane(-Vector3.Normalize(feetSpeed) * decceleration, groundNormal);
+        Vector3 deccelerateForce = Vector3.ProjectOnPlane(-feetSpeed * decceleration, groundNormal);
         if (!isGrounded) 
         {
             feetForce *= aerialControl;
             deccelerateForce *= 0.09f;
         }
-        deccelerateForce += Vector3.Normalize(feetForce) * Mathf.Max(0f, Vector3.Dot(-deccelerateForce, feetForce));
-
+        deccelerateForce -= Vector3.Normalize(deccelerateForce) * Mathf.Min(deccelerateForce.magnitude, Mathf.Max(0f, Vector3.Dot(-deccelerateForce, feetForce)));
 
         RB.velocity += feetForce;
         RB.velocity += deccelerateForce;

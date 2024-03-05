@@ -31,6 +31,7 @@ public class MainCamera : MonoBehaviour
     void OnPreCull ()
     {
         VisibiliyPrepass();
+        foreach (Portal portal in portals.Keys) portal.Reposition();
         foreach (Portal portal in portals.Keys) portal.Render();
         foreach (Portal portal in portals.Keys) portal.ProtectFromClipping();
     }
@@ -42,31 +43,38 @@ public class MainCamera : MonoBehaviour
         {
             data.bestNearPortalDistance = float.MaxValue;
             data.linkedSceenVisibleToPlayer = false;
+            data.bestPerspective = Camera.main;
         }
         foreach (KeyValuePair<Portal, PrepassData> portalData in portals) 
         {
             bool directlyVisible = GeometryUtility.TestPlanesAABB(playerFrustum, portalData.Key.linkedPortal.screen.bounds);
             if (!directlyVisible) continue;
 
-            portalData.Value.bestPerspective = Camera.main;
+            // portalData.Value.bestPerspective = Camera.main;
             portalData.Value.linkedSceenVisibleToPlayer = true;
             Plane[] portalCamFrustum = GeometryUtility.CalculateFrustumPlanes(portalData.Key.portalCam);
             
             // look at second level portal screens
-            foreach (KeyValuePair<Portal, PrepassData> secondPortalData in portals)
+            foreach (Portal deepPortal in portalData.Key.secondDepthPortals)
             {
-                if (portalData.Key == secondPortalData.Key) continue;
-                if (GeometryUtility.TestPlanesAABB(portalCamFrustum, secondPortalData.Key.linkedPortal.screen.bounds))
+                if (GeometryUtility.TestPlanesAABB(portalCamFrustum, deepPortal.screen.bounds))
                 {
-                    secondPortalData.Value.linkedSceenVisibleToPlayer = true;
-                    float directDistance = (Camera.main.transform.position - secondPortalData.Key.linkedPortal.transform.position).magnitude;
-                    float secondDistance = (portalData.Key.portalCam.transform.position - secondPortalData.Key.linkedPortal.transform.position).magnitude;
-                    float nearPortalDistance = (Camera.main.transform.position - portalData.Key.linkedPortal.transform.position).magnitude;
-                    if (secondDistance < directDistance && nearPortalDistance < secondPortalData.Value.bestNearPortalDistance) 
+                    portals[deepPortal.linkedPortal].linkedSceenVisibleToPlayer = true;
+                    float directDistance = (Camera.main.transform.position - deepPortal.transform.position).magnitude;
+                    float secondDistance = (portalData.Key.transform.position - deepPortal.transform.position).magnitude;
+                    if (secondDistance < directDistance) 
                     {
-                        secondPortalData.Value.bestNearPortalDistance = nearPortalDistance;
-                        secondPortalData.Value.bestPerspective = portalData.Key.portalCam;
+                        portals[deepPortal.linkedPortal].bestPerspective = portalData.Key.portalCam;
                     }
+
+
+
+                    // float nearPortalDistance = (Camera.main.transform.position - portalData.Key.linkedPortal.transform.position).magnitude;
+                    // if (secondDistance < directDistance && nearPortalDistance < portals[deepPortal].bestNearPortalDistance) 
+                    // {
+                    //     portals[deepPortal].bestNearPortalDistance = nearPortalDistance;
+                    //     portals[deepPortal].bestPerspective = portalData.Key.portalCam;
+                    // }
                 }
             }
         }
