@@ -208,8 +208,12 @@ public class Player : MonoBehaviour
         Vector3 inputVector = new Vector3(lateralInput, 0f, forwardInput);
 
         Quaternion feetOrientation = Quaternion.LookRotation(floorForward, groundNormal);
-        testOb.rotation = feetOrientation;
-        testOb.position = groundContact;
+        
+        if (testOb)
+        {
+            testOb.rotation = feetOrientation;
+            testOb.position = groundContact;
+        }
 
         Vector3 feetSpaceInputVector = feetOrientation * inputVector;
         
@@ -225,12 +229,9 @@ public class Player : MonoBehaviour
         if ((feetForce + feetSpeed).magnitude > capSpeed) feetForce *= 0f;
 
         Vector3 deccelerateForce = Vector3.ProjectOnPlane(-feetSpeed * decceleration, groundNormal);
-        if (!isGrounded) 
-        {
-            feetForce *= aerialControl;
-            deccelerateForce *= 0.09f;
-        }
+        if (!isGrounded) feetForce *= aerialControl;
         deccelerateForce -= Vector3.Normalize(deccelerateForce) * Mathf.Min(deccelerateForce.magnitude, Mathf.Max(0f, Vector3.Dot(-deccelerateForce, feetForce)));
+        if (!isGrounded) deccelerateForce *= 0.03f;
 
         RB.velocity += feetForce;
         RB.velocity += deccelerateForce;
