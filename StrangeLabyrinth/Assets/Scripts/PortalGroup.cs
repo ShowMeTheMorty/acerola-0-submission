@@ -5,29 +5,35 @@ using UnityEngine;
 public class PortalGroup : MonoBehaviour
 {
     public Transform heirarchy;
-    public PlayerDetector detector; // optional
+    public List<PlayerDetector> detectors; // optional
+    public bool active;
 
     void Start ()
     {
-        if (detector == null) // permenantly add portals
+        if (detectors.Count == 0) // permenantly add portals
         {
             MainCamera.AddPortals(heirarchy.GetComponentsInChildren<Portal>());
         }
         else
         {
-            detector.OnPlayerEnter += PlayerEnter;
-            detector.OnPlayerExit += PlayerExit;
+            foreach (PlayerDetector detector in detectors)
+            {
+                detector.OnPlayerEnter += PlayerEnter;
+                detector.OnPlayerExit += PlayerExit;
+            }
         }
     }
 
     void PlayerEnter (PlayerDetector _detector)
     {
+        if (active) return; // already active
         heirarchy.gameObject.SetActive(true);
         MainCamera.AddPortals(heirarchy.GetComponentsInChildren<Portal>());
     }
 
     void PlayerExit (PlayerDetector _detector)
     {
+        foreach (PlayerDetector detector in detectors) if (detector.containsPlayer) return;
         heirarchy.gameObject.SetActive(false);
         MainCamera.RemovePortals(heirarchy.GetComponentsInChildren<Portal>());
     }
