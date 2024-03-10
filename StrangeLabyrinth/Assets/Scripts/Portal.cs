@@ -34,6 +34,8 @@ public class Portal : MonoBehaviour
         screen = GetComponent<MeshRenderer>();
 
         portalCam.fieldOfView = playerCam.fieldOfView;
+        portalCam.nearClipPlane = playerCam.nearClipPlane;
+        portalCam.farClipPlane = playerCam.farClipPlane;
         portalCam.enabled = false;
     }
 

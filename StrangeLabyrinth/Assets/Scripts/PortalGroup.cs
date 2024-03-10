@@ -22,6 +22,7 @@ public class PortalGroup : MonoBehaviour
                 detector.OnPlayerExit += PlayerExit;
             }
         }
+        PlayerExit(null);
     }
 
     void PlayerEnter (PlayerDetector _detector)

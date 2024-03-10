@@ -74,11 +74,11 @@ public class Player : MonoBehaviour
     {
         MouseInput();
         PlayerMovementSpontaneous();
-        PortalTraversal();
     }
 
     void LateUpdate ()
     {
+        PortalTraversal();
 
     }
 
@@ -219,11 +219,6 @@ public class Player : MonoBehaviour
         
         float capSpeed = control.sprint.IsPressed() ? runSpeed : walkSpeed;
         feetSpeed = Vector3.ProjectOnPlane(RB.velocity, groundNormal);
-
-        if (!isGrounded) 
-        {
-            capSpeed *= aerialControl;
-        }
 
         Vector3 feetForce = feetSpaceInputVector * acceleration;
         if ((feetForce + feetSpeed).magnitude > capSpeed) feetForce *= 0f;
