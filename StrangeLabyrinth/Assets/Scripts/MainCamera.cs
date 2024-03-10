@@ -2,9 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor.SearchService;
 using UnityEngine;
-using UnityEngine.Experimental.GlobalIllumination;
 
 public class MainCamera : MonoBehaviour
 {

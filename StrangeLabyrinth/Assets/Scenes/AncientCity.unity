@@ -4123,7 +4123,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1824860808243818392, guid: 1e617d3f4c203a24c8aa62ad1d689ba8, type: 3}
       propertyPath: field of view
-      value: 70
+      value: 80
       objectReference: {fileID: 0}
     - target: {fileID: 1824860808243818392, guid: 1e617d3f4c203a24c8aa62ad1d689ba8, type: 3}
       propertyPath: far clip plane
