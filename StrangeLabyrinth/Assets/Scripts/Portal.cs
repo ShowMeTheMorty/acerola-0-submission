@@ -34,6 +34,7 @@ public class Portal : MonoBehaviour
         portalCam.fieldOfView = playerCam.fieldOfView;
         portalCam.nearClipPlane = playerCam.nearClipPlane;
         portalCam.farClipPlane = playerCam.farClipPlane;
+        portalCam.depthTextureMode = DepthTextureMode.DepthNormals;
         portalCam.enabled = false;
     }
 
