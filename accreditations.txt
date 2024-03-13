@@ -1,0 +1,35 @@
+Author,
+Models,
+Scripting,
+Textures,
+Design,
+Audio:
+George
+george@streamliners.co.nz
+
+Freesound.org Creative Commons audio:
+https://freesound.org/people/PearceWilsonKing/sounds/256607/
+https://freesound.org/people/szegvari/sounds/558262/
+https://freesound.org/people/Magmi.Soundtracks/sounds/439341/
+https://freesound.org/people/Nox_Sound/sounds/506911/
+https://freesound.org/people/Jakegwizdak/sounds/565491/
+https://freesound.org/people/MrLindstrom/sounds/135034/
+https://freesound.org/people/VKProduktion/sounds/215711/
+
+Skybox:
+PolyHaven - Jarod Guest & Sergej Majboroda
+https://polyhaven.com/a/wasteland_clouds_puresky
+
+Water Textures:
+Catlike Coding - Flow Tutorial
+https://catlikecoding.com/unity/tutorials/flow
+
+Portal Implemenation Guide and Inspiration:
+Sebastian Lague's Portals video
+https://www.youtube.com/watch?v=cWpFZbjtSQg
+
+Other Influences:
+Portal by Valve
+Superliminal by Pillow Castle Games
+Non-Euclideon Worlds Engine video by CodeParade - https://www.youtube.com/watch?v=kEB11PQ9Eo8
+

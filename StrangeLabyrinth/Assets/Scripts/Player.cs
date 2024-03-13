@@ -28,10 +28,14 @@ public class Player : MonoBehaviour
     public float aerialControl;
     public float maxSlope;
     public float feetLength;
+    public float deathFallSpeed;
+    public int respawnFrames;
+    public float stepStride;
 
-    private bool isGrounded;
+    internal bool isGrounded;
     private bool wasGrounded;
     private int coyoteFrame;
+    internal int respawnFrame;
 
     private Camera playerCam;
     private float camTilt;
@@ -40,18 +44,26 @@ public class Player : MonoBehaviour
     private Vector3 groundNormal;
     private Vector3 groundContact;
     private Vector3 feetSpeed;
+    private float distCovered;
 
     private InputMod control;
     private Vector2 mouseDelta;
-
+    
     private float portalRelPos;
     private Portal closestPortal;
+    
+    private static Vector3 spawnPoint;
+    private static Quaternion spawnRotation;
+    internal static Player player;
+
+    private DeathEffect deathEffect;
 
     public Transform testOb;
 
     void Start()
     {
         RB = GetComponent<Rigidbody>();
+        deathEffect = GetComponentInChildren<DeathEffect>();
         playerCam = GetComponentInChildren<Camera>();
         groundNormal = Vector3.up;
         groundContact = Vector3.zero;
@@ -66,6 +78,9 @@ public class Player : MonoBehaviour
             moveForward = actionMap.FindAction("MoveForward"),
             moveLateral = actionMap.FindAction("MoveLateral")
         };
+        spawnPoint = transform.position;
+        spawnRotation = transform.rotation;
+        player = this;
     }
 
     void Update ()
@@ -85,6 +100,17 @@ public class Player : MonoBehaviour
         CastFeet();
         SuspendPlayer();
         PlayerMovement();
+        StepSounds();
+    }
+
+    private void StepSounds()
+    {
+        if (distCovered > stepStride)
+        {
+            AudioSource stepSound = AudioManager.singleton.CreateSoundEffect(AudioManager.SFX_TYPE.SFX_STEP_DRY, groundContact, feetSpeed.magnitude / 1f);
+            stepSound.transform.parent = transform;
+            distCovered = 0;
+        }
     }
 
     private void PortalTraversal()
@@ -139,6 +165,7 @@ public class Player : MonoBehaviour
     private void SuspendPlayer()
     {
         if (!isGrounded) return;
+        if (respawnFrame != 0) return;
         Vector3 feetMaxPoint = transform.position - transform.up * feetLength;
         float discrepancy = Vector3.Dot(transform.up, groundContact - feetMaxPoint) - kneeSink;
         RB.velocity += groundNormal * Mathf.Max(Vector3.Dot(RB.velocity, -groundNormal), 0f) * kneeDamp;
@@ -161,11 +188,27 @@ public class Player : MonoBehaviour
             isGrounded = false;
             groundNormal = transform.up;
         }
-        if (isGrounded && !wasGrounded) coyoteFrame = coyoteFrames;
+        if (isGrounded && !wasGrounded) LandOnGround ();
+    }
+
+    private void LandOnGround()
+    {
+        if (player.respawnFrame != 0) return;
+        coyoteFrame = coyoteFrames;
+        distCovered = 0f;
+        float landingSpeed = Vector3.Dot(Vector3.Normalize(Physics.gravity), RB.velocity);
+        AudioManager.singleton.CreateSoundEffect(AudioManager.SFX_TYPE.LANDING, groundContact, landingSpeed / 0.4f);
+        if (landingSpeed > deathFallSpeed) DieHard ();
+    }
+
+    private void DieHard()
+    {
+        respawnFrame = respawnFrames;
     }
 
     private void MouseInput()
     {
+        if (respawnFrame != 0) return;
         Vector2 _delta = Mouse.current.delta.ReadValue() * lookSensitivity;
         Vector2 delta = _delta + mouseDelta;
         delta /= 2f;
@@ -181,7 +224,7 @@ public class Player : MonoBehaviour
 
     private void PlayerMovementSpontaneous()
     {
-        
+        if (respawnFrame != 0) return;
         if (control.jump.triggered && (isGrounded || coyoteFrame > 0))
         {
             float currentUpSpeed = Vector3.Dot(transform.up, RB.velocity);
@@ -200,6 +243,21 @@ public class Player : MonoBehaviour
         {
             forwardInput /= inputScale;
             lateralInput /= inputScale;
+        }
+
+        if (respawnFrame != 0)
+        {
+            if (respawnFrame == 1)
+            {
+                Respawn();
+                return;
+            }
+            float effect = (1f - ((float)respawnFrame / (float)respawnFrames)) / 0.5f;
+            effect = Mathf.Clamp(effect, 0f, 1f);
+            deathEffect.strength = effect;
+            forwardInput = 0f;
+            lateralInput = 0f;
+            respawnFrame--;
         }
 
         Vector3 floorForward = -Vector3.Normalize(Vector3.Cross(groundNormal, transform.right));
@@ -236,5 +294,21 @@ public class Player : MonoBehaviour
         }
         
         feetSpeed = Vector3.ProjectOnPlane(RB.velocity, groundNormal);
+        if (isGrounded) distCovered += feetSpeed.magnitude / 50f;
+    }
+
+    private void Respawn()
+    {
+        respawnFrame = 0;
+        transform.position = spawnPoint;
+        transform.rotation = spawnRotation;
+        deathEffect.strength = 0f;
+    }
+
+    internal static void SetSpawn ()
+    {
+        if (player.respawnFrame != 0) return;
+        spawnPoint = player.transform.position;
+        spawnRotation = player.transform.rotation;
     }
 }
