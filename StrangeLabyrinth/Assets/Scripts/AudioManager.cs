@@ -20,6 +20,7 @@ public class AudioManager : MonoBehaviour
         SFX_STEP_GRAVEL,
         SFX_STEP_WET,
         LANDING,
+        BARKING
     }
 
     
@@ -28,6 +29,7 @@ public class AudioManager : MonoBehaviour
     public SFX SFX_STEP_GRAVEL;
     public SFX SFX_STEP_WET;
     public SFX LANDING;
+    public SFX BARKING;
 
     public AudioSource audioSourceTemplate;
     private AudioSource musicSource;
@@ -83,6 +85,7 @@ public class AudioManager : MonoBehaviour
             case SFX_TYPE.SFX_STEP_GRAVEL: return CreateSoundEffect(SFX_STEP_GRAVEL, location, volumeMult);
             case SFX_TYPE.SFX_STEP_WET: return CreateSoundEffect(SFX_STEP_WET, location, volumeMult);
             case SFX_TYPE.LANDING: return CreateSoundEffect(LANDING, location, volumeMult);
+            case SFX_TYPE.BARKING: return CreateSoundEffect(BARKING, location, volumeMult);
             default: return CreateSoundEffect(LANDING, location, volumeMult);
         }
     }
